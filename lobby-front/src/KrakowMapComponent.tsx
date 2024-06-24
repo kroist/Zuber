@@ -7,6 +7,9 @@ import { Input } from './components//ui/input';
 import { Toast } from './components//ui/toast';
 import { AlertCircle } from 'lucide-react';
 import L from 'leaflet';
+import { Buffer } from "buffer";
+import * as snarkjs from 'snarkjs';
+import { buildEddsa } from 'circomlibjs';
 
 
 // @ts-ignore
@@ -61,18 +64,84 @@ const KrakowMapComponent = () => {
     [50.0623, 19.9846],
     [50.0463, 19.9249],
   ];
-  const lengths = [
-      10000,
-      20000,
-      30000,
-      40000,
-      50000,
-      60000,
-      40000,
-      30000,
-      30000,
-      30000,
-  ]
+
+  const osrmUrl = 
+    '19.965763092041016,50.05526515901147;19.975,50.0647?overview=false&alternatives=true&steps=true&hints=;';
+
+  useEffect(() => {
+    if (newUser.position[0] === 0) {
+      return;
+    }
+    async function prove() {
+      let lengths = [];
+      for (let i = 0; i < users.length; i++) {
+        try {
+          const response = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${newUser.position[1]},${newUser.position[0]};${users[i].position[1]},${users[i].position[0]}?overview=false&alternatives=true&steps=true&hints=;`,          
+          );
+          const data = await response.json();
+          lengths.push(Math.floor(data.routes[0].distance));
+          console.log(lengths[i]);
+        } catch (err) {
+          console.log(err);
+        }
+      };
+      if (lengths.length >= users.length && users.length > 0) {
+        console.log('lool');
+
+
+        let msgPriv = [];
+        let msgPub;
+        let msg = [];
+        {
+          const arr4 = newUser.position[0].toFixed(4).toString().split(".");
+          const hex4 = parseInt(arr4[0]+arr4[1].slice(3)).toString(16);
+          const arr5 = newUser.position[1].toFixed(4).toString().split(".");
+          const hex5 = parseInt(arr5[0]+arr5[1].slice(3)).toString(16);
+          msgPub = Buffer.from(hex4 + hex5, "hex");
+          console.log('lol', buffer2bits(msgPub).length);
+        }
+
+        for (let i = 0; i < users.length; i++) {
+          const arr1 = positions[i][0].toFixed(4).toString().split(".");
+          const hex1 = parseInt(arr1[0]+arr1[1].slice(3)).toString(16);
+          const arr2 = positions[i][1].toFixed(4).toString().split(".");
+          const hex2 = parseInt(arr2[0]+arr2[1].slice(3)).toString(16);
+          const arr3 = lengths[i].toString();
+          const hex3 = parseInt(arr3).toString(16);
+          
+          msgPriv.push(Buffer.from(hex1 + hex2 + hex3, "hex"));
+          msg.push(Buffer.concat([msgPriv[i], msgPub]));
+        }
+        while (msg.length < 5) {
+          msgPriv.push(msgPriv[0]);
+          msg.push(msg[0]);
+        }
+        console.log(msgPriv, msgPub, msg);
+
+        const prvKey = Buffer.from("0001020304050607080900010203040506070809000102030405060708090001", "hex");
+        
+        const eddsa = await buildEddsa();
+
+        const pubKey = eddsa.prv2pub(prvKey);
+
+        const msgPubBits = buffer2bits(msgPub);
+        const msgPrivBits = msgPriv.map((curmsg) => buffer2bits( curmsg));
+        const { proof } = await snarkjs.groth16.fullProve(
+          {
+            msgPub: msgPubBits,
+            msgPriv: msgPrivBits
+          },
+          "circuit.wasm",
+          "circuit_0000.zkey",
+        );
+        // await proveOnServer();
+        // console.log(proof);
+    
+      }
+    };
+    prove();
+  }, [newUser]);
 
   function buffer2bits(buff: any) {
     const res = [];
@@ -88,38 +157,6 @@ const KrakowMapComponent = () => {
     return res;
   }
 
-  useEffect(() => {
-    async function prove() {
-      console.log(lengths.length, users.length);
-      if (lengths.length >= users.length && users.length > 0) {
-        console.log('lool');
-
-
-        let msgPriv = [];
-        let msgPub = [];
-        let msg = [];
-
-        for (let i = 0; i < users.length; i++) {
-          const arr1 = positions[i][0].toFixed(4).toString().split(".");
-          const hex1 = parseInt(arr1[0]+arr1[1].slice(3)).toString(16);
-          const arr2 = positions[i][1].toFixed(4).toString().split(".");
-          const hex2 = parseInt(arr2[0]+arr2[1].slice(3)).toString(16);
-          const arr3 = lengths[i].toString();
-          const hex3 = parseInt(arr3).toString(16);
-          
-          msgPriv.push(Buffer.from(hex1 + hex2 + hex3, "hex"));
-          // console.log('kek', buffer2bits(msgPriv[i]).length);
-          msgPub.push(Buffer.from(hex1 + hex2, "hex"));
-          // console.log('lol', buffer2bits(msgPub[i]).length);
-          msg.push(Buffer.concat([msgPriv[i], msgPub[i]]));
-        }
-        await proveOnServer();
-        console.log(proof);
-    
-      }
-    };
-    prove();
-  }, [lengths]);
 
   useEffect(() => {
     if (lobbyCreated) {
@@ -196,8 +233,12 @@ const KrakowMapComponent = () => {
     useEffect(() => {
       map.on('click', (e) => {
         if (lookingForDriver) {
+          if (e.latlng.lat.toFixed(4) === '0' || e.latlng.lng.toFixed(4) === '0') {
+            return;
+          }
           console.log([e.latlng.lat.toFixed(4), e.latlng.lng.toFixed(4)]);
           setNewUser({ ...newUser, position: [e.latlng.lat, e.latlng.lng] });
+          console.log(newUser.position);
         }
       });
     }, [map]);
@@ -252,7 +293,6 @@ const KrakowMapComponent = () => {
                 [users[user.id].position[0], users[user.id].position[1]]
               ]}
               id={user.id}
-              lengths={lengths}
             />
           })}
           <MapEvents />

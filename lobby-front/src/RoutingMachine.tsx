@@ -6,7 +6,6 @@ import "leaflet-routing-machine";
 export interface RoutingMachineOptions extends ControlOptions {
   points: [number, number][];
   id: number;
-  lengths: number[];
 };
 
 const colors = [
@@ -18,11 +17,6 @@ const colors = [
 ];
 
 const createRoutineMachineLayer = (props: RoutingMachineOptions) => {
-  console.log(props.id);
-  console.log(colors.length);
-  console.log(colors[
-    props.id % colors.length
-  ]);
   const instance = L.Routing.control({
     lineOptions: {
       styles: [{ color: colors[
@@ -44,11 +38,6 @@ const createRoutineMachineLayer = (props: RoutingMachineOptions) => {
     fitSelectedRoutes: false,
     showAlternatives: false,
     useZoomParameter: false,
-  });
-
-  instance.on('routesfound', function(e) {
-    console.log(e);
-    let newDist = Math.floor(e.routes[0].summary.totalDistance);
   });
 
   return instance;

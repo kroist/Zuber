@@ -4,7 +4,7 @@ include "node_modules/circomlib/circuits/eddsa.circom";
 
 template SigVerifier(nBits, nSigs) {
     signal input msgPriv[nSigs][32];
-    signal input msgPub[nSigs][16];
+    signal input msgPub[16];
 
     signal input A[256];
     signal input R8[nSigs][256];
@@ -16,7 +16,7 @@ template SigVerifier(nBits, nSigs) {
             msg[i][j] <== msgPriv[i][j];
         }
         for (var j = 0; j < 16; j++) {
-            msg[i][j + 32] <== msgPub[i][j];
+            msg[i][j + 32] <== msgPub[j];
         }
     }
 
@@ -34,5 +34,5 @@ template SigVerifier(nBits, nSigs) {
     c <== msg[0][0];
 }
 
-component main {public [msgPub]} = SigVerifier(48, 10);
+component main {public [msgPub, A]} = SigVerifier(48, 5);
 
