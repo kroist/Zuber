@@ -26,11 +26,13 @@ const LobbyCodePage = () => {
   const [isValid, setIsValid] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const navigate = useNavigate();
   const [nickname, setNickname] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [won, setWon] = useState(false);
   const serverUrl = import.meta.env.VITE_BACKEND_URL;
+  const wsUrl = import.meta.env.VITE_WS_URL;
 
   const handleNicknameChange = (e) => {
     setNickname(e.target.value);
@@ -53,6 +55,35 @@ const LobbyCodePage = () => {
           setIsConfirmed(true);
           setIsSearching(true);
           console.log('Nickname confirmed:', nickname);
+          const socket = new WebSocket(wsUrl);
+
+          // Handle the open event
+          socket.onopen = () => {
+            console.log('WebSocket connection opened');
+          };
+
+          // Handle messages received from the server
+          socket.onmessage = (event) => {
+            try {
+              console.log('Message received:', event.data);
+              const data = JSON.parse(event.data);
+              if (data.type === 'user_won') {
+                if (data.user == nickname) {
+                  console.log('You won!');
+                  setIsSearching(false);
+                  setWon(true);
+                }
+              }
+            } catch (err) {
+              console.error('Error parsing message:', err);
+            }
+          };
+
+          // Handle the close event
+          socket.onclose = () => {
+            console.log('WebSocket connection closed');
+          };
+          setWs(socket);
         }
       } catch (err) {
         setShowSuccess(true);
@@ -79,7 +110,7 @@ const LobbyCodePage = () => {
 
   useEffect(() => {
     const checkDevice = () => {
-      setIsDesktop(window.innerWidth >= 2000); // Consider devices with width >= 1024px as desktop
+      setIsDesktop(window.innerWidth >= 1024); // Consider devices with width >= 1024px as desktop
     };
 
     checkDevice();
@@ -190,6 +221,17 @@ const LobbyCodePage = () => {
                 </AlertDescription>
               </div>
             </Alert>
+          )}
+          {won && (
+            <Alert variant="default" className="bg-green-100 border-green-300">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-4 w-4 text-green-500" />
+                <AlertDescription className="text-green-700">
+                  You have been chosen as driver!
+                </AlertDescription>
+              </div>
+            </Alert>
+          
           )}
         </div>
       )

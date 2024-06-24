@@ -166,6 +166,13 @@ const KrakowMapComponent = () => {
         const res = await snarkjs.groth16.verify(vKey, publicSignals, proof);
         console.log(res);
         setProved(true);
+        fetch(`${serverUrl}/user_won`, {
+          method: 'POST',
+          body: JSON.stringify({ nickname: users[minLength].nickname, proof: proof, publicSignals: publicSignals }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });  
         console.log(proof);
       }
     };
