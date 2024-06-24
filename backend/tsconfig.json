@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "target": "ESNext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  },
+  "include": ["src", "src/types"],
+  "exclude": ["dist", "node_modules"]
+}

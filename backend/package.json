@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "main": "./dist/app.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "pnpm build && node ./dist/app.js",
+    "typechain": "typechain --target=ethers-v6 --out-dir src/types contracts/*.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.8",
+    "@types/ws": "^8.5.10",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2",
+    "ws": "^8.17.1"
+  }
+}
