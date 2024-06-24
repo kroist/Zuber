@@ -15,6 +15,8 @@ interface OpenLobbyProps {
   setLobbyCreated: (lobbyCreated: boolean) => void;
   lookingForDriver: boolean;
   setLookingForDriver: (lookingForDriver: boolean) => void;
+  proving: boolean;
+  proved: boolean;
 }
 
 const OpenLobby = (props: OpenLobbyProps) => {
@@ -88,19 +90,37 @@ const OpenLobby = (props: OpenLobbyProps) => {
                 onClick={findDriver}
                 className="bg-purple-500 hover:bg-purple-400 w-full h-12 text-xl mt-6"
               >
-                Find driver
+                Click to find driver
               </Button>
             ) :
-            (
+            <>{!props.proving ? (
               <Button
-                onClick={findDriver}
-                className="bg-purple-500 hover:bg-purple-400 w-full h-12 text-xl mt-6"
+                className="bg-red-500 hover:bg-red-400 w-full h-12 text-xl mt-6"
               >
-                Click on the map
+                Where are you on the map?
                 <Loader className="ml-4 h-4 w-4 animate-spin text-white-500" />
               </Button>
-            )
-            }
+              ) : 
+              <>{!props.proved ? (
+                <Button
+                  className="bg-purple-500 hover:bg-purple-400 w-full h-12 text-xl mt-6"
+                >
+                  Generating proof  
+                  <Loader className="ml-4 h-4 w-4 animate-spin text-white-500" />
+                </Button>
+                ) : (
+                <Button
+                  className="bg-green-500 hover:bg-green-400 w-full h-12 text-xl mt-6"
+                >
+                  Proof generated ✅
+                </Button>
+                ) 
+                }
+              </>
+              
+              }
+            </>
+          }
           </div>
         )
       }

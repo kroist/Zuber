@@ -9,7 +9,8 @@ import { AlertCircle } from 'lucide-react';
 import L from 'leaflet';
 import { Buffer } from "buffer";
 import * as snarkjs from 'snarkjs';
-import { buildEddsa } from 'circomlibjs';
+import { buildEddsa, buildBabyjub } from 'circomlibjs';
+import vKey from './verification_key.json';
 
 
 // @ts-ignore
@@ -44,6 +45,8 @@ const KrakowMapComponent = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [lobbyCreated, setLobbyCreated] = useState(false);
   const [lookingForDriver, setLookingForDriver] = useState(false);
+  const [proving, setProving] = useState(false);
+  const [proved, setProved] = useState(false);
   const wsUrl = process.env.REACT_APP_SERVER_WS_URL!;
   const serverUrl = process.env.REACT_APP_SERVER_URL!;
 
@@ -73,6 +76,7 @@ const KrakowMapComponent = () => {
       return;
     }
     async function prove() {
+      setProving(true);
       let lengths = [];
       for (let i = 0; i < users.length; i++) {
         try {
@@ -93,6 +97,7 @@ const KrakowMapComponent = () => {
         let msgPriv = [];
         let msgPub;
         let msg = [];
+        let newlengths = [];
         {
           const arr4 = newUser.position[0].toFixed(4).toString().split(".");
           const hex4 = parseInt(arr4[0]+arr4[1].slice(3)).toString(16);
@@ -102,42 +107,66 @@ const KrakowMapComponent = () => {
           console.log('lol', buffer2bits(msgPub).length);
         }
 
+        let minLength = 0;
         for (let i = 0; i < users.length; i++) {
+          if (msg.length >= 5) {
+            break;
+          }
           const arr1 = positions[i][0].toFixed(4).toString().split(".");
           const hex1 = parseInt(arr1[0]+arr1[1].slice(3)).toString(16);
           const arr2 = positions[i][1].toFixed(4).toString().split(".");
           const hex2 = parseInt(arr2[0]+arr2[1].slice(3)).toString(16);
           const arr3 = lengths[i].toString();
           const hex3 = parseInt(arr3).toString(16);
+          if (lengths[i] < lengths[minLength]) {
+            minLength = i;
+          }
           
           msgPriv.push(Buffer.from(hex1 + hex2 + hex3, "hex"));
           msg.push(Buffer.concat([msgPriv[i], msgPub]));
+          newlengths.push(lengths[i]);
         }
         while (msg.length < 5) {
           msgPriv.push(msgPriv[0]);
           msg.push(msg[0]);
+          newlengths.push(newlengths[0]);
         }
         console.log(msgPriv, msgPub, msg);
 
         const prvKey = Buffer.from("0001020304050607080900010203040506070809000102030405060708090001", "hex");
         
         const eddsa = await buildEddsa();
+        const babyJub = await buildBabyjub();
 
         const pubKey = eddsa.prv2pub(prvKey);
+        const pPubKey = babyJub.packPoint(pubKey);
+        const signature = msg.map((curmsg) => eddsa.signPedersen(prvKey, curmsg));
+
+        const pSignature = signature.map((cursig) => eddsa.packSignature(cursig));
 
         const msgPubBits = buffer2bits(msgPub);
         const msgPrivBits = msgPriv.map((curmsg) => buffer2bits( curmsg));
-        const { proof } = await snarkjs.groth16.fullProve(
+        const r8Bits = pSignature.map((curpsig) => buffer2bits( curpsig.slice(0, 32)));
+        const sBits = pSignature.map((curpsig) => buffer2bits( curpsig.slice(32, 64)));
+        const aBits = buffer2bits( pPubKey);
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(
           {
+            A: aBits, R8: r8Bits, S: sBits, 
             msgPub: msgPubBits,
-            msgPriv: msgPrivBits
+            msgPriv: msgPrivBits,
+            lens: newlengths,
+            jIndex: minLength,
+            lensj: lengths[minLength],
           },
           "circuit.wasm",
           "circuit_0000.zkey",
         );
-        // await proveOnServer();
-        // console.log(proof);
-    
+        console.log(publicSignals);
+
+        const res = await snarkjs.groth16.verify(vKey, publicSignals, proof);
+        console.log(res);
+        setProved(true);
+        console.log(proof);
       }
     };
     prove();
@@ -254,6 +283,8 @@ const KrakowMapComponent = () => {
         users={users}
         lookingForDriver={lookingForDriver}
         setLookingForDriver={setLookingForDriver}
+        proving={proving}
+        proved={proved}
       />
       <div className="flex-grow">
         <MapContainer 
